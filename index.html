@@ -11,7 +11,8 @@
       background: #000;
       color: #ccc;
       margin: 0;
-      padding: 2rem 2rem 2rem 12rem;
+      padding: 2rem;
+      padding-left: 2rem;
     }
     h1 {
       text-align: center;
@@ -42,6 +43,18 @@
       color: #ddd;
       font-family: 'Unica One', sans-serif;
     }
+    .sidebar-toggle {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      background: #222;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.3rem 0.6rem;
+      cursor: pointer;
+      z-index: 1000;
+    }
     .sidebar {
       position: fixed;
       top: 0;
@@ -51,6 +64,12 @@
       background: #111;
       padding: 2rem 1rem;
       overflow-y: auto;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      z-index: 999;
+    }
+    .sidebar.show {
+      transform: translateX(0);
     }
     .sidebar h3 {
       color: #888;
@@ -155,6 +174,7 @@
   </style>
 </head>
 <body>
+  <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('show')">☰ Tags</button>
   <div class="sidebar">
     <h3>Tags</h3>
     <div id="tagList"></div>
@@ -180,7 +200,6 @@
       { src: "IMG_8813.jpeg", tags: ["plum", "upward", "dreamy"] },
       { src: "IMG_8814.jpeg", tags: ["plum", "reflection", "nature"] }
     ];
-    let currentIndex = 0;
 
     const gallery = document.getElementById("gallery");
     const search = document.getElementById("search");
@@ -189,9 +208,10 @@
     const tagList = document.getElementById("tagList");
     const prevBtn = document.getElementById("prevBtn");
     const nextBtn = document.getElementById("nextBtn");
-
     let startX = 0;
-    let endX = 0;
+    let startDist = 0;
+    let currentIndex = 0;
+    let scale = 1;
 
     function getAllTags() {
       const all = new Set();
@@ -217,6 +237,8 @@
       currentIndex = index;
       modal.style.display = 'flex';
       modalImg.src = images[currentIndex].src;
+      modalImg.style.transform = 'scale(1)';
+      scale = 1;
     }
 
     function renderImages(filter = "") {
@@ -257,16 +279,44 @@
       modal.style.display = 'none';
     });
 
-    modal.addEventListener('touchstart', (e) => {
-      startX = e.touches[0].clientX;
+    modalImg.addEventListener("wheel", e => {
+      e.preventDefault();
+      scale += e.deltaY * -0.001;
+      scale = Math.min(Math.max(1, scale), 4);
+      modalImg.style.transform = `scale(${scale})`;
     });
 
-    modal.addEventListener('touchend', (e) => {
-      endX = e.changedTouches[0].clientX;
-      const deltaX = endX - startX;
-      if (Math.abs(deltaX) > 50) {
-        if (deltaX > 0) prevBtn.click();
-        else nextBtn.click();
+    modalImg.addEventListener("touchstart", e => {
+      if (e.touches.length === 2) {
+        startDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      } else {
+        startX = e.touches[0].clientX;
+      }
+    });
+
+    modalImg.addEventListener("touchmove", e => {
+      if (e.touches.length === 2) {
+        const newDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        scale *= newDist / startDist;
+        scale = Math.min(Math.max(1, scale), 4);
+        modalImg.style.transform = `scale(${scale})`;
+        e.preventDefault();
+      }
+    });
+
+    modalImg.addEventListener("touchend", e => {
+      if (scale === 1 && e.changedTouches.length === 1) {
+        const deltaX = e.changedTouches[0].clientX - startX;
+        if (Math.abs(deltaX) > 50) {
+          if (deltaX > 0) prevBtn.click();
+          else nextBtn.click();
+        }
       }
     });
 
@@ -278,8 +328,12 @@
       }
     });
 
+    search.addEventListener("input", () => {
+      renderImages(search.value);
+    });
+
     renderTagList();
     renderImages();
-  </script>
+</script>
 </body>
 </html>
