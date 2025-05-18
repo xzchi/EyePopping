@@ -155,7 +155,8 @@
   </style>
 </head>
 <body>
-  <div class="sidebar">
+  <button id="toggleSidebar" style="position: fixed; top: 1rem; left: 1rem; z-index: 1000; background: #111; color: #fff; border: none; padding: 0.5rem 1rem; cursor: pointer; border-radius: 4px;">☰ Tags</button>
+  <div class="sidebar" id="sidebar" style="display:none">
     <h3>Tags</h3>
     <div id="tagList"></div>
   </div>
@@ -280,6 +281,11 @@
 
     renderTagList();
     renderImages();
+
+    document.getElementById("toggleSidebar").addEventListener("click", () => {
+      const sidebar = document.getElementById("sidebar");
+      sidebar.style.display = sidebar.style.display === "none" ? "block" : "none";
+    });
   </script>
 </body>
 </html>
