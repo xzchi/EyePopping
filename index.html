@@ -11,8 +11,7 @@
       background: #000;
       color: #ccc;
       margin: 0;
-      padding: 2rem;
-      padding-left: 2rem;
+      padding: 2rem 2rem 2rem 12rem;
     }
     h1 {
       text-align: center;
@@ -43,18 +42,6 @@
       color: #ddd;
       font-family: 'Unica One', sans-serif;
     }
-    .sidebar-toggle {
-      position: fixed;
-      top: 1rem;
-      left: 1rem;
-      background: #222;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 0.3rem 0.6rem;
-      cursor: pointer;
-      z-index: 1000;
-    }
     .sidebar {
       position: fixed;
       top: 0;
@@ -64,12 +51,6 @@
       background: #111;
       padding: 2rem 1rem;
       overflow-y: auto;
-      transform: translateX(-100%);
-      transition: transform 0.3s ease;
-      z-index: 999;
-    }
-    .sidebar.show {
-      transform: translateX(0);
     }
     .sidebar h3 {
       color: #888;
@@ -150,14 +131,9 @@
       align-items: center;
     }
     .modal img {
-      max-width: unset;
-      max-height: unset;
-      width: auto;
-      height: auto;
+      max-width: 90%;
+      max-height: 90%;
       border-radius: 10px;
-      transform-origin: center center;
-      cursor: grab;
-      position: relative;
     }
     .modal-controls {
       position: absolute;
@@ -179,7 +155,6 @@
   </style>
 </head>
 <body>
-  <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('show')">☰ Tags</button>
   <div class="sidebar">
     <h3>Tags</h3>
     <div id="tagList"></div>
@@ -205,6 +180,7 @@
       { src: "IMG_8813.jpeg", tags: ["plum", "upward", "dreamy"] },
       { src: "IMG_8814.jpeg", tags: ["plum", "reflection", "nature"] }
     ];
+    let currentIndex = 0;
 
     const gallery = document.getElementById("gallery");
     const search = document.getElementById("search");
@@ -213,14 +189,9 @@
     const tagList = document.getElementById("tagList");
     const prevBtn = document.getElementById("prevBtn");
     const nextBtn = document.getElementById("nextBtn");
+
     let startX = 0;
-    let startDist = 0;
-    let currentIndex = 0;
-    let scale = 1;
-    let offsetX = 0;
-    let offsetY = 0;
-    let isDragging = false;
-    let lastX, lastY;
+    let endX = 0;
 
     function getAllTags() {
       const all = new Set();
@@ -246,8 +217,6 @@
       currentIndex = index;
       modal.style.display = 'flex';
       modalImg.src = images[currentIndex].src;
-      modalImg.style.transform = 'scale(1)';
-      scale = 1;
     }
 
     function renderImages(filter = "") {
@@ -255,10 +224,7 @@
       const filtered = images.filter(image =>
         image.tags.some(tag => tag.includes(filter.toLowerCase()))
       );
-      let list = filter ? filtered : images;
-      if (activeFolder !== 'All') {
-        list = list.filter(img => isFavorite(img.src, activeFolder));
-      }
+      const list = filter ? filtered : images;
       list.forEach((image, i) => {
         const div = document.createElement("div");
         div.className = "item";
@@ -268,21 +234,8 @@
         imgEl.onclick = () => showModal(i);
         const tagDiv = document.createElement("div");
         tagDiv.className = "tags";
-        tagDiv.innerHTML = image.tags.map(tag => `<span class=\"tag\">${tag}</span>`).join(" ");
-
-        const favBtn = document.createElement("button");
-        favBtn.textContent = isFavorite(image.src, activeFolder) ? "💖" : "🤍";
-        favBtn.style.background = "none";
-        favBtn.style.border = "none";
-        favBtn.style.color = "#aaa";
-        favBtn.style.cursor = "pointer";
-        favBtn.style.fontSize = "1.2rem";
-        favBtn.onclick = (e) => {
-          e.stopPropagation();
-          toggleFavorite(image.src, activeFolder);
-        };
+        tagDiv.innerHTML = image.tags.map(tag => `<span class="tag">${tag}</span>`).join(" ");
         div.appendChild(imgEl);
-        div.appendChild(favBtn);
         div.appendChild(tagDiv);
         gallery.appendChild(div);
       });
@@ -304,54 +257,16 @@
       modal.style.display = 'none';
     });
 
-    modalImg.addEventListener("wheel", e => {
-      e.preventDefault();
-      scale += e.deltaY * -0.001;
-      scale = Math.min(Math.max(1, scale), 4);
-      modalImg.style.transform = `scale(${scale}) translate(${offsetX}px, ${offsetY}px)`;
-    });
-      scale += e.deltaY * -0.001;
-      scale = Math.min(Math.max(1, scale), 4);
-      modalImg.style.transform = `scale(${scale})`;
+    modal.addEventListener('touchstart', (e) => {
+      startX = e.touches[0].clientX;
     });
 
-    modalImg.addEventListener("touchstart", e => {
-      if (e.touches.length === 2) {
-        startDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-      } else {
-        startX = e.touches[0].clientX;
-      }
-    });
-
-    modalImg.addEventListener("touchmove", e => {
-      if (e.touches.length === 2) {
-        const newDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        scale *= newDist / startDist;
-        scale = Math.min(Math.max(1, scale), 4);
-        modalImg.style.transform = `scale(${scale}) translate(${offsetX}px, ${offsetY}px)`;
-        e.preventDefault();
-      }
-    });
-        scale *= newDist / startDist;
-        scale = Math.min(Math.max(1, scale), 4);
-        modalImg.style.transform = `scale(${scale})`;
-        e.preventDefault();
-      }
-    });
-
-    modalImg.addEventListener("touchend", e => {
-      if (scale === 1 && e.changedTouches.length === 1) {
-        const deltaX = e.changedTouches[0].clientX - startX;
-        if (Math.abs(deltaX) > 50) {
-          if (deltaX > 0) prevBtn.click();
-          else nextBtn.click();
-        }
+    modal.addEventListener('touchend', (e) => {
+      endX = e.changedTouches[0].clientX;
+      const deltaX = endX - startX;
+      if (Math.abs(deltaX) > 50) {
+        if (deltaX > 0) prevBtn.click();
+        else nextBtn.click();
       }
     });
 
@@ -363,78 +278,8 @@
       }
     });
 
-    search.addEventListener("input", () => {
-      renderImages(search.value);
-    });
-
     renderTagList();
     renderImages();
-
-    // 拖曳平移功能
-    modalImg.addEventListener("mousedown", e => {
-      if (scale <= 1) return;
-      isDragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-    });
-    document.addEventListener("mousemove", e => {
-      if (!isDragging) return;
-      offsetX += (e.clientX - lastX);
-      offsetY += (e.clientY - lastY);
-      lastX = e.clientX;
-      lastY = e.clientY;
-      modalImg.style.transform = `scale(${scale}) translate(${offsetX}px, ${offsetY}px)`;
-    });
-    document.addEventListener("mouseup", () => {
-      isDragging = false;
-    });
-
-    // ⭐ 收藏邏輯
-    const folderKey = "eyepoppingFolders";
-    let folders = JSON.parse(localStorage.getItem(folderKey) || '{}');
-
-    function toggleFavorite(imageSrc, folderName) {
-      if (!folders[folderName]) folders[folderName] = [];
-      const index = folders[folderName].indexOf(imageSrc);
-      if (index === -1) folders[folderName].push(imageSrc);
-      else folders[folderName].splice(index, 1);
-      localStorage.setItem(folderKey, JSON.stringify(folders));
-      renderImages(search.value);
-    }
-
-    function isFavorite(imageSrc, folderName) {
-      return folders[folderName] && folders[folderName].includes(imageSrc);
-    }
-
-    // 顯示資料夾 UI
-    const folderSelect = document.createElement('select');
-    folderSelect.style.margin = '1rem auto';
-    folderSelect.style.display = 'block';
-    folderSelect.style.background = '#111';
-    folderSelect.style.color = '#fff';
-    folderSelect.style.fontFamily = 'Unica One';
-    folderSelect.innerHTML = `<option value="All">All</option>` +
-      Object.keys(folders).map(f => `<option value="${f}">${f}</option>`).join('') +
-      `<option value="__new__">+ New Folder</option>`;
-    document.body.insertBefore(folderSelect, gallery);
-
-    let activeFolder = 'All';
-    folderSelect.addEventListener('change', () => {
-      if (folderSelect.value === "__new__") {
-        const name = prompt("Enter new folder name:");
-        if (name && !folders[name]) {
-          folders[name] = [];
-          localStorage.setItem(folderKey, JSON.stringify(folders));
-          const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = name;
-          folderSelect.insertBefore(opt, folderSelect.lastElementChild);
-          folderSelect.value = name;
-        }
-      }
-      activeFolder = folderSelect.value;
-      renderImages(search.value);
-    });
-</script>
+  </script>
 </body>
 </html>
