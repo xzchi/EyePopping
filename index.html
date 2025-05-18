@@ -150,9 +150,14 @@
       align-items: center;
     }
     .modal img {
-      max-width: 90%;
-      max-height: 90%;
+      max-width: unset;
+      max-height: unset;
+      width: auto;
+      height: auto;
       border-radius: 10px;
+      transform-origin: center center;
+      cursor: grab;
+      position: relative;
     }
     .modal-controls {
       position: absolute;
@@ -212,6 +217,10 @@
     let startDist = 0;
     let currentIndex = 0;
     let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let isDragging = false;
+    let lastX, lastY;
 
     function getAllTags() {
       const all = new Set();
@@ -246,7 +255,10 @@
       const filtered = images.filter(image =>
         image.tags.some(tag => tag.includes(filter.toLowerCase()))
       );
-      const list = filter ? filtered : images;
+      let list = filter ? filtered : images;
+      if (activeFolder !== 'All') {
+        list = list.filter(img => isFavorite(img.src, activeFolder));
+      }
       list.forEach((image, i) => {
         const div = document.createElement("div");
         div.className = "item";
@@ -256,8 +268,21 @@
         imgEl.onclick = () => showModal(i);
         const tagDiv = document.createElement("div");
         tagDiv.className = "tags";
-        tagDiv.innerHTML = image.tags.map(tag => `<span class="tag">${tag}</span>`).join(" ");
+        tagDiv.innerHTML = image.tags.map(tag => `<span class=\"tag\">${tag}</span>`).join(" ");
+
+        const favBtn = document.createElement("button");
+        favBtn.textContent = isFavorite(image.src, activeFolder) ? "💖" : "🤍";
+        favBtn.style.background = "none";
+        favBtn.style.border = "none";
+        favBtn.style.color = "#aaa";
+        favBtn.style.cursor = "pointer";
+        favBtn.style.fontSize = "1.2rem";
+        favBtn.onclick = (e) => {
+          e.stopPropagation();
+          toggleFavorite(image.src, activeFolder);
+        };
         div.appendChild(imgEl);
+        div.appendChild(favBtn);
         div.appendChild(tagDiv);
         gallery.appendChild(div);
       });
@@ -283,6 +308,10 @@
       e.preventDefault();
       scale += e.deltaY * -0.001;
       scale = Math.min(Math.max(1, scale), 4);
+      modalImg.style.transform = `scale(${scale}) translate(${offsetX}px, ${offsetY}px)`;
+    });
+      scale += e.deltaY * -0.001;
+      scale = Math.min(Math.max(1, scale), 4);
       modalImg.style.transform = `scale(${scale})`;
     });
 
@@ -303,6 +332,12 @@
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
+        scale *= newDist / startDist;
+        scale = Math.min(Math.max(1, scale), 4);
+        modalImg.style.transform = `scale(${scale}) translate(${offsetX}px, ${offsetY}px)`;
+        e.preventDefault();
+      }
+    });
         scale *= newDist / startDist;
         scale = Math.min(Math.max(1, scale), 4);
         modalImg.style.transform = `scale(${scale})`;
@@ -334,6 +369,72 @@
 
     renderTagList();
     renderImages();
+
+    // 拖曳平移功能
+    modalImg.addEventListener("mousedown", e => {
+      if (scale <= 1) return;
+      isDragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+    document.addEventListener("mousemove", e => {
+      if (!isDragging) return;
+      offsetX += (e.clientX - lastX);
+      offsetY += (e.clientY - lastY);
+      lastX = e.clientX;
+      lastY = e.clientY;
+      modalImg.style.transform = `scale(${scale}) translate(${offsetX}px, ${offsetY}px)`;
+    });
+    document.addEventListener("mouseup", () => {
+      isDragging = false;
+    });
+
+    // ⭐ 收藏邏輯
+    const folderKey = "eyepoppingFolders";
+    let folders = JSON.parse(localStorage.getItem(folderKey) || '{}');
+
+    function toggleFavorite(imageSrc, folderName) {
+      if (!folders[folderName]) folders[folderName] = [];
+      const index = folders[folderName].indexOf(imageSrc);
+      if (index === -1) folders[folderName].push(imageSrc);
+      else folders[folderName].splice(index, 1);
+      localStorage.setItem(folderKey, JSON.stringify(folders));
+      renderImages(search.value);
+    }
+
+    function isFavorite(imageSrc, folderName) {
+      return folders[folderName] && folders[folderName].includes(imageSrc);
+    }
+
+    // 顯示資料夾 UI
+    const folderSelect = document.createElement('select');
+    folderSelect.style.margin = '1rem auto';
+    folderSelect.style.display = 'block';
+    folderSelect.style.background = '#111';
+    folderSelect.style.color = '#fff';
+    folderSelect.style.fontFamily = 'Unica One';
+    folderSelect.innerHTML = `<option value="All">All</option>` +
+      Object.keys(folders).map(f => `<option value="${f}">${f}</option>`).join('') +
+      `<option value="__new__">+ New Folder</option>`;
+    document.body.insertBefore(folderSelect, gallery);
+
+    let activeFolder = 'All';
+    folderSelect.addEventListener('change', () => {
+      if (folderSelect.value === "__new__") {
+        const name = prompt("Enter new folder name:");
+        if (name && !folders[name]) {
+          folders[name] = [];
+          localStorage.setItem(folderKey, JSON.stringify(folders));
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          folderSelect.insertBefore(opt, folderSelect.lastElementChild);
+          folderSelect.value = name;
+        }
+      }
+      activeFolder = folderSelect.value;
+      renderImages(search.value);
+    });
 </script>
 </body>
 </html>
